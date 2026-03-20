@@ -1,25 +1,48 @@
-# Car Number Plate Extraction System
+# 🚗 Automatic Number Plate Recognition System
 
-This project implements the three-step Automatic Number Plate Recognition (ANPR) pipeline described in *Car Number Plate Extraction in Three Steps: Detection, Alignment, and OCR* by Gabriel Baziramwabo. The system captures frames from a webcam, detects a plausible plate region with OpenCV, rectifies the plate with a perspective transform, extracts text with Tesseract OCR, validates the text against the Rwanda plate format, confirms the result across multiple observations, and saves trusted plates to a CSV log.
+This project builds a complete **Automatic Number Plate Recognition (ANPR)** system inspired by a three-stage approach: detecting the plate, correcting its orientation, and extracting the text.
 
-## Pipeline
+The application uses a webcam to capture live video, identifies potential number plates using OpenCV, straightens the detected plate, reads characters using OCR, and verifies them against Rwanda’s standard plate format.
 
-1. Detection
-   The frame is converted to grayscale, filtered, edge-enhanced, and searched for rectangular contours with a number-plate-like aspect ratio.
-2. Alignment
-   The best candidate is converted from a rotated quadrilateral into a fixed `450 x 140` plate image using a perspective warp.
-3. OCR
-   The aligned plate is thresholded and passed to Tesseract using a whitelist of uppercase letters and digits.
-4. Validation
-   The OCR result is normalized and checked against the expected Rwanda format: `AAA999A`.
-5. Temporal confirmation
-   The same valid plate must appear repeatedly before it is confirmed and written to the log.
-6. Persistence
-   Confirmed plates are appended to `data/plates.csv`.
+To improve reliability, the system confirms results over multiple frames before storing them in a CSV file.
 
-## Project Structure
+---
 
-```text
+## ⚙️ How the System Works
+
+### 1. Plate Detection
+
+Each frame from the camera is converted to grayscale, filtered, and processed to highlight edges. The system then searches for rectangular shapes that resemble number plates based on size and proportions.
+
+### 2. Plate Alignment
+
+Once a candidate region is found, it is transformed into a clean, straightened image using a perspective correction. The output is normalized to a fixed size of **450 × 140 pixels**.
+
+### 3. Text Recognition (OCR)
+
+The processed plate image is enhanced and passed to Tesseract OCR, which extracts characters using only uppercase letters and digits.
+
+### 4. Format Validation
+
+The recognized text is cleaned and checked against the Rwanda plate structure:
+
+```
+AAA999A
+```
+
+### 5. Multi-Frame Confirmation
+
+To reduce false detections, the same plate must appear consistently across several frames before it is accepted as valid.
+
+### 6. Data Storage
+
+Verified plate numbers are saved into a CSV file located in the `data` directory.
+
+---
+
+## 📁 Project Layout
+
+```
 car_plate_extraction/
 ├── README.md
 ├── requirements.txt
@@ -36,11 +59,17 @@ car_plate_extraction/
     └── pipeline.py
 ```
 
-## Installation
+---
 
+## 🛠️ Setup Instructions
+
+Clone the repository:
+
+```bash
 git clone https://github.com/humuraelvin/car-plate-extraction.git
+```
 
-This repository is configured for Python `3.11.9` because OpenCV and OCR dependencies are more stable there than on Python 3.13.
+Set up Python (recommended version: **3.11.9**):
 
 ```bash
 pyenv local 3.11.9
@@ -48,107 +77,127 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
+```
+
+Verify Tesseract installation:
+
+```bash
 tesseract --version
 ```
 
-If `tesseract` is not on `PATH`, pass its full path with `--tesseract-cmd`.
+If it’s not detected, provide the full path using:
 
-## Running the Stages
+```
+--tesseract-cmd
+```
 
-Camera check:
+---
+
+## ▶️ Running the System
+
+You can test each stage independently:
+
+**Camera test**
 
 ```bash
 python src/camera.py
 ```
 
-Detection only:
+**Detection only**
 
 ```bash
 python src/detect.py
 ```
 
-Detection + alignment:
+**Detection + alignment**
 
 ```bash
 python src/align.py
 ```
 
-Detection + alignment + OCR:
+**Detection + alignment + OCR**
 
 ```bash
 python src/ocr.py
 ```
 
-Detection + alignment + OCR + validation:
+**Full pipeline with validation**
 
 ```bash
 python src/validate.py
 ```
 
-Full live pipeline with temporal confirmation and CSV logging:
+**Complete system (recommended)**
 
 ```bash
 python src/main.py
 ```
 
-Useful options:
+---
+
+## 🔧 Optional Parameters
 
 ```bash
 python src/main.py --camera 0 --width 1280 --height 720
-python src/main.py --image path/to/test-image.jpg
+python src/main.py --image sample.jpg
 python src/main.py --buffer-size 5 --min-confirmations 3 --cooldown 10
 ```
 
-## Real-World Testing Workflow
+---
 
-1. Ask the vehicle owner for permission and explain the test is for a school project.
-2. Start the full pipeline with `python src/main.py`.
-3. Position the webcam so the plate fills a reasonable part of the frame.
-4. Wait until the plate is shown as confirmed.
-5. Press `s` to save:
-   `screenshots/detection.png`, `screenshots/alignment.png`, and `screenshots/ocr.png`
-6. Repeat on multiple vehicles.
-7. Commit the generated screenshots and the updated CSV log to GitHub.
+## 🧪 Testing Procedure
 
-## Expected Plate Format
+1. Request permission from the vehicle owner before testing.
+2. Launch the full system:
 
-The validation stage expects plates in this format:
+   ```bash
+   python src/main.py
+   ```
+3. Position the camera to clearly capture the plate.
+4. Wait until the system confirms the plate.
+5. Press **`s`** to save screenshots.
+6. Repeat with different vehicles.
+7. Upload screenshots and results to your repository.
 
-```text
+---
+
+## 🔍 Plate Format Used
+
+The system expects plates in the format:
+
+```
 AAA999A
 ```
 
-Examples:
+**Examples:**
 
-```text
+```
 RAH972U
 RAB123A
 ```
 
-The validator also applies light OCR correction for common confusions such as `O/0`, `S/5`, `B/8`, and `I/1`.
+To improve accuracy, common OCR mistakes are corrected automatically (e.g., O ↔ 0, S ↔ 5, B ↔ 8, I ↔ 1).
 
-## Screenshots of Results
+---
 
-Run the system on real vehicles, press `s`, and commit the generated images so this section renders correctly on GitHub.
+## 🖼️ Output Samples
+
+After testing, saved images will appear in the `screenshots` folder:
 
 ```markdown
-![Detection result](screenshots/detection.png)
-![Alignment result](screenshots/alignment.png)
-![OCR result](screenshots/ocr.png)
+![Detection](screenshots/detection.png)
+![Alignment](screenshots/alignment.png)
+![OCR](screenshots/ocr.png)
 ```
 
-## CSV Output
+---
 
-Confirmed plates are stored in `data/plates.csv` with this schema:
+## 📄 CSV Log Format
+
+Recognized plates are stored as:
 
 ```csv
 Plate Number,Timestamp
 RAH972U,2026-03-12 10:45:16
 ```
 
-## Submission Checklist
-
-1. Test on multiple real vehicles.
-2. Capture and commit the screenshots in `screenshots/`.
-3. Push the project to GitHub.
-4. Submit your name, class, and repository URL in the quiz form.
