@@ -9,6 +9,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytesseract
+import os
+import sys
 
 MIN_AREA = 1200
 AR_MIN = 2.0
@@ -71,6 +73,19 @@ class PlateReading:
 def set_tesseract_cmd(command: str | None) -> None:
     if command:
         pytesseract.pytesseract.tesseract_cmd = command
+        return
+
+    if sys.platform.startswith("win"):
+        # Common installation paths for Tesseract on Windows
+        possible_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.join(os.environ.get("USERPROFILE", ""), r"AppData\Local\Tesseract-OCR\tesseract.exe"),
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                return
 
 
 def open_source(
@@ -85,9 +100,14 @@ def open_source(
             raise FileNotFoundError(f"Could not read image: {image_path}")
         return None, frame
 
-    cap = cv2.VideoCapture(camera_index)
+    # On Windows, CAP_DSHOW is often more reliable
+    backend = cv2.CAP_DSHOW if sys.platform.startswith("win") else cv2.CAP_ANY
+    cap = cv2.VideoCapture(camera_index, backend)
     if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera index {camera_index}")
+        # Fallback if DSHOW fails
+        cap = cv2.VideoCapture(camera_index)
+        if not cap.isOpened():
+            raise RuntimeError(f"Could not open camera index {camera_index}")
 
     if width:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
