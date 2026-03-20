@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import time
+from pathlib import Path
 
 import cv2
 
+from temporal import TemporalPlateTracker
 from pipeline import (
     CSV_PATH,
-    TemporalPlateTracker,
+    SCREENSHOT_DIR,
     append_plate_log,
     choose_best_plate_read,
     draw_candidates,
@@ -34,6 +36,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cooldown", type=float, default=10.0, help="Seconds before the same plate can be logged again.")
     parser.add_argument("--tesseract-cmd", type=str, default=None, help="Optional explicit path to the tesseract executable.")
     return parser.parse_args()
+
+
+def get_next_test_folder(base_dir: Path) -> str:
+    base_dir.mkdir(parents=True, exist_ok=True)
+    existing = [d.name for d in base_dir.iterdir() if d.is_dir() and d.name.startswith("car_test_")]
+    indices = [int(name.split("_")[-1]) for name in existing if name.split("_")[-1].isdigit()]
+    next_idx = max(indices, default=0) + 1
+    return f"car_test_{next_idx}"
+
+
+def get_timestamp_folder() -> str:
+    return f"auto_{time.strftime('%Y%m%d_%H%M%S')}"
 
 
 def main() -> None:
@@ -74,7 +88,15 @@ def main() -> None:
                     confirmed_plate, logged_now = tracker.observe(valid_plate, now=time.time())
                     if logged_now and confirmed_plate:
                         append_plate_log(confirmed_plate, CSV_PATH)
-                        print(f"[saved] {confirmed_plate} -> {CSV_PATH}")
+                        folder = get_timestamp_folder()
+                        save_screenshots(
+                            detection_view,
+                            aligned_plate=aligned_plate,
+                            ocr_frame=app_view,
+                            threshold_image=threshold,
+                            sub_folder=folder,
+                        )
+                        print(f"[auto-save] {confirmed_plate} -> {CSV_PATH} and screenshots/{folder}")
 
             app_view = draw_status_lines(
                 app_view,
@@ -95,13 +117,18 @@ def main() -> None:
 
             key = cv2.waitKey(delay) & 0xFF
             if key == ord("s"):
+                folder = get_next_test_folder(SCREENSHOT_DIR)
                 save_screenshots(
                     detection_view,
                     aligned_plate=aligned_plate,
                     ocr_frame=app_view,
                     threshold_image=threshold,
+                    sub_folder=folder,
                 )
-                print("[saved] screenshots/detection.png, screenshots/alignment.png, screenshots/ocr.png")
+                # Manual override: always log to CSV if we have a valid plate or even just raw OCR
+                log_text = valid_plate or raw_text or "MANUAL_SAVE_NO_OCR"
+                append_plate_log(log_text, CSV_PATH)
+                print(f"[manual-save] {log_text} -> {CSV_PATH} and screenshots/{folder}")
             elif key == ord("q"):
                 break
     finally:

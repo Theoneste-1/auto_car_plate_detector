@@ -3,10 +3,8 @@ from __future__ import annotations
 import csv
 import re
 import time
-from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Deque
 
 import cv2
 import numpy as np
@@ -18,9 +16,6 @@ AR_MAX = 8.0
 RECTANGULARITY_MIN = 0.42
 W_OUT = 450
 H_OUT = 140
-BUFFER_SIZE = 5
-MIN_CONFIRMATIONS = 3
-COOLDOWN_SECONDS = 10.0
 PLATE_RE = re.compile(r"^[A-Z]{3}[0-9]{3}[A-Z]$")
 ALNUM_RE = re.compile(r"[^A-Z0-9]")
 LETTER_TO_DIGIT = {
@@ -71,39 +66,6 @@ class PlateReading:
     ocr_result: OCRResult
     valid_plate: str | None
     score: float
-
-
-class TemporalPlateTracker:
-    def __init__(
-        self,
-        buffer_size: int = BUFFER_SIZE,
-        min_confirmations: int = MIN_CONFIRMATIONS,
-        cooldown_seconds: float = COOLDOWN_SECONDS,
-    ) -> None:
-        self.buffer: Deque[str] = deque(maxlen=buffer_size)
-        self.min_confirmations = min_confirmations
-        self.cooldown_seconds = cooldown_seconds
-        self.last_saved_plate: str | None = None
-        self.last_saved_time = 0.0
-
-    def observe(self, plate: str, now: float | None = None) -> tuple[str | None, bool]:
-        if not plate:
-            return None, False
-
-        current_time = now if now is not None else time.time()
-        self.buffer.append(plate)
-        most_common_plate, votes = Counter(self.buffer).most_common(1)[0]
-        if votes < self.min_confirmations:
-            return None, False
-
-        should_log = (
-            most_common_plate != self.last_saved_plate
-            or (current_time - self.last_saved_time) >= self.cooldown_seconds
-        )
-        if should_log:
-            self.last_saved_plate = most_common_plate
-            self.last_saved_time = current_time
-        return most_common_plate, should_log
 
 
 def set_tesseract_cmd(command: str | None) -> None:
@@ -373,16 +335,19 @@ def save_screenshots(
     aligned_plate: np.ndarray | None = None,
     ocr_frame: np.ndarray | None = None,
     threshold_image: np.ndarray | None = None,
-    directory: Path = SCREENSHOT_DIR,
-) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(directory / "detection.png"), detection_frame)
+    base_directory: Path = SCREENSHOT_DIR,
+    sub_folder: str | None = None,
+) -> Path:
+    target_dir = base_directory if sub_folder is None else base_directory / sub_folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(target_dir / "detection.png"), detection_frame)
     if aligned_plate is not None:
-        cv2.imwrite(str(directory / "alignment.png"), aligned_plate)
+        cv2.imwrite(str(target_dir / "alignment.png"), aligned_plate)
     if ocr_frame is not None:
-        cv2.imwrite(str(directory / "ocr.png"), ocr_frame)
+        cv2.imwrite(str(target_dir / "ocr.png"), ocr_frame)
     if threshold_image is not None:
-        cv2.imwrite(str(directory / "ocr_threshold.png"), threshold_image)
+        cv2.imwrite(str(target_dir / "ocr_threshold.png"), threshold_image)
+    return target_dir
 
 
 def draw_status_lines(frame: np.ndarray, lines: list[str]) -> np.ndarray:

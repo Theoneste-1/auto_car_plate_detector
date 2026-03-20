@@ -38,6 +38,8 @@ car_plate_extraction/
 
 ## Installation
 
+git clone https://github.com/humuraelvin/car-plate-extraction.git
+
 This repository is configured for Python `3.11.9` because OpenCV and OCR dependencies are more stable there than on Python 3.13.
 
 ```bash
